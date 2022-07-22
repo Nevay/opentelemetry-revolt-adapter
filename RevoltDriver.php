@@ -4,16 +4,23 @@ declare(strict_types=1);
 
 namespace OpenTelemetry\Async\Revolt;
 
+use function assert;
 use Closure;
 use Fiber;
 use OpenTelemetry\Context\Context;
 use Revolt\EventLoop\Driver;
 use Revolt\EventLoop\Suspension;
+use function spl_object_id;
 use Throwable;
-use WeakMap;
+use WeakReference;
 
 final class RevoltDriver implements Driver
 {
+    /**
+     * @var array<int, WeakReference<self>>
+     */
+    private static array $drivers = [];
+
     private readonly Driver $driver;
     private readonly Closure $errorCallback;
 
@@ -28,6 +35,13 @@ final class RevoltDriver implements Driver
         $this->errorCallback = static fn (Closure $errorHandler, Throwable $exception): mixed => $errorHandler($exception);
 
         $this->setErrorHandler($driver->getErrorHandler());
+    }
+
+    public function __destruct()
+    {
+        unset(self::$drivers[spl_object_id($this->driver)]);
+
+        $this->driver->setErrorHandler($this->getErrorHandler());
     }
 
     /**
@@ -45,10 +59,17 @@ final class RevoltDriver implements Driver
             return $driver;
         }
 
-        static $drivers = new WeakMap();
+        if ($reference = self::$drivers[spl_object_id($driver)] ?? null) {
+            $revoltDriver = $reference->get();
+            assert($revoltDriver instanceof self);
 
-        /** @var WeakMap<Driver, Driver> $drivers */
-        return $drivers[$driver] ??= new self($driver);
+            return $revoltDriver;
+        }
+
+        $revoltDriver = new self($driver);
+        self::$drivers[spl_object_id($driver)] = WeakReference::create($revoltDriver);
+
+        return $revoltDriver;
     }
 
     /**
