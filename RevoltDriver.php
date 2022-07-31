@@ -22,7 +22,7 @@ final class RevoltDriver implements Driver
     private static array $drivers = [];
 
     private readonly Driver $driver;
-    private readonly Closure $errorCallback;
+    private readonly Closure $invokeCallback;
 
     /**
      * @var Closure(Throwable): void|null
@@ -32,7 +32,32 @@ final class RevoltDriver implements Driver
     private function __construct(Driver $driver)
     {
         $this->driver = $driver;
-        $this->errorCallback = static fn (Closure $errorHandler, Throwable $exception): mixed => $errorHandler($exception);
+        $this->invokeCallback = static function (self $driver, Closure $closure, array $args, Context $context): mixed {
+            $d = $driver;
+            $c = $closure;
+            $s = $context;
+            $a = $args;
+            unset($driver, $closure, $context, $args);
+
+            $scope = $s->activate();
+
+            try {
+                /** @noinspection PhpUnusedLocalVariableInspection */
+                return $c(...$a, ...($a = []));
+            } catch (Throwable $exception) {
+                if (!$d->errorHandler) {
+                    throw $exception;
+                }
+
+                $fiber = new Fiber(static fn (Closure $errorHandler, Throwable $exception): mixed => $errorHandler($exception));
+                /** @psalm-suppress PossiblyUndefinedVariable */
+                $fiber->start($d->errorHandler, $exception);
+
+                return null;
+            } finally {
+                $scope->detach();
+            }
+        };
 
         $this->setErrorHandler($driver->getErrorHandler());
     }
@@ -84,25 +109,7 @@ final class RevoltDriver implements Driver
     {
         $context = Context::getCurrent();
 
-        return function (mixed ...$args) use ($closure, $context): mixed {
-            $scope = $context->activate();
-
-            try {
-                return $closure(...$args);
-            } catch (Throwable $exception) {
-                if (!$this->errorHandler) {
-                    throw $exception;
-                }
-
-                $fiber = new Fiber($this->errorCallback);
-                /** @psalm-suppress PossiblyUndefinedVariable */
-                $fiber->start($this->errorHandler, $exception);
-
-                return null;
-            } finally {
-                $scope->detach();
-            }
-        };
+        return fn (mixed ...$args): mixed => ($this->invokeCallback)($this, $closure, $args, $context);
     }
 
     public function run(): void
@@ -127,7 +134,7 @@ final class RevoltDriver implements Driver
 
     public function queue(Closure $closure, mixed ...$args): void
     {
-        $this->driver->queue($this->bindContext($closure), ...$args);
+        $this->driver->queue($this->invokeCallback, $this, $closure, $args, Context::getCurrent());
     }
 
     public function defer(Closure $closure): string
