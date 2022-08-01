@@ -22,6 +22,7 @@ final class RevoltDriver implements Driver
     private static array $drivers = [];
 
     private readonly Driver $driver;
+    /** @var Closure(self, Closure, array, Context): mixed */
     private readonly Closure $invokeCallback;
 
     /**
