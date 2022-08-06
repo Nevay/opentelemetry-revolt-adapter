@@ -16,18 +16,14 @@ use WeakReference;
 
 final class RevoltDriver implements Driver
 {
-    /**
-     * @var array<int, WeakReference<self>>
-     */
+    /** @var array<int, WeakReference<self>> */
     private static array $drivers = [];
 
     private readonly Driver $driver;
     /** @var Closure(self, Closure, array, Context): mixed */
     private readonly Closure $invokeCallback;
 
-    /**
-     * @var Closure(Throwable): void|null
-     */
+    /** @var Closure(Throwable): void|null */
     private ?Closure $errorHandler = null;
 
     private function __construct(Driver $driver)
