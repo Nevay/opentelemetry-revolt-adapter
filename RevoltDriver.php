@@ -6,10 +6,10 @@ namespace OpenTelemetry\Async\Revolt;
 
 use function assert;
 use Closure;
-use Fiber;
 use OpenTelemetry\Context\Context;
 use Revolt\EventLoop\Driver;
 use Revolt\EventLoop\Suspension;
+use Revolt\EventLoop\UncaughtThrowable;
 use function spl_object_id;
 use Throwable;
 use WeakReference;
@@ -24,7 +24,7 @@ final class RevoltDriver implements Driver
     private readonly Closure $invokeCallback;
 
     /** @var Closure(Throwable): void|null */
-    private ?Closure $errorHandler = null;
+    private ?Closure $errorHandler;
 
     private function __construct(Driver $driver)
     {
@@ -41,14 +41,20 @@ final class RevoltDriver implements Driver
             try {
                 /** @noinspection PhpUnusedLocalVariableInspection */
                 return $c(...$a, ...($a = []));
+            } catch (UncaughtThrowable $exception) {
+                throw $exception;
             } catch (Throwable $exception) {
-                if (!$d->errorHandler) {
-                    throw $exception;
+                if (!$errorHandler = $d->errorHandler) {
+                    throw UncaughtThrowable::throwingCallback($c, $exception);
                 }
 
-                $fiber = new Fiber(static fn (Closure $errorHandler, Throwable $exception): mixed => $errorHandler($exception));
-                /** @psalm-suppress PossiblyUndefinedVariable */
-                $fiber->start($d->errorHandler, $exception);
+                try {
+                    $errorHandler($exception);
+                } catch (UncaughtThrowable $exception) {
+                    throw $exception;
+                } catch (Throwable $exception) {
+                    throw UncaughtThrowable::throwingErrorHandler($errorHandler, $exception);
+                }
 
                 return null;
             } finally {
@@ -56,14 +62,16 @@ final class RevoltDriver implements Driver
             }
         };
 
-        $this->setErrorHandler($driver->getErrorHandler());
+        $this->errorHandler = $driver->getErrorHandler();
+        $driver->setErrorHandler(null);
     }
 
     public function __destruct()
     {
         unset(self::$drivers[spl_object_id($this->driver)]);
 
-        $this->driver->setErrorHandler($this->getErrorHandler());
+        $this->driver->setErrorHandler($this->errorHandler);
+        $this->errorHandler = null;
     }
 
     /**
@@ -191,13 +199,7 @@ final class RevoltDriver implements Driver
 
     public function setErrorHandler(?Closure $errorHandler): void
     {
-        if ($errorHandler) {
-            $this->errorHandler = $errorHandler;
-            $this->driver->setErrorHandler(static fn (Throwable $exception) => throw $exception);
-        } else {
-            $this->errorHandler = null;
-            $this->driver->setErrorHandler(null);
-        }
+        $this->errorHandler = $errorHandler;
     }
 
     public function getErrorHandler(): ?Closure
