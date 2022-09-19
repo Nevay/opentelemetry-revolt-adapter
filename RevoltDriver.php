@@ -7,6 +7,7 @@ namespace OpenTelemetry\Async\Revolt;
 use function assert;
 use Closure;
 use OpenTelemetry\Context\Context;
+use OpenTelemetry\Context\ContextInterface;
 use Revolt\EventLoop\Driver;
 use Revolt\EventLoop\Suspension;
 use Revolt\EventLoop\UncaughtThrowable;
@@ -20,7 +21,7 @@ final class RevoltDriver implements Driver
     private static array $drivers = [];
 
     private readonly Driver $driver;
-    /** @var Closure(self, Closure, array, Context): mixed */
+    /** @var Closure(self, Closure, array, ContextInterface): mixed */
     private readonly Closure $invokeCallback;
 
     /** @var Closure(Throwable): void|null */
@@ -29,7 +30,7 @@ final class RevoltDriver implements Driver
     private function __construct(Driver $driver)
     {
         $this->driver = $driver;
-        $this->invokeCallback = static function (self $driver, Closure $closure, array $args, Context $context): mixed {
+        $this->invokeCallback = static function (self $driver, Closure $closure, array $args, ContextInterface $context): mixed {
             $d = $driver;
             $c = $closure;
             $s = $context;
