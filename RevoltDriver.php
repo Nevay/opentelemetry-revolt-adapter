@@ -6,8 +6,10 @@ namespace OpenTelemetry\Async\Revolt;
 
 use function assert;
 use Closure;
+use Fiber;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextInterface;
+use Revolt\EventLoop\CallbackType;
 use Revolt\EventLoop\Driver;
 use Revolt\EventLoop\Suspension;
 use Revolt\EventLoop\UncaughtThrowable;
@@ -49,13 +51,16 @@ final class RevoltDriver implements Driver
                     throw UncaughtThrowable::throwingCallback($c, $exception);
                 }
 
-                try {
-                    $errorHandler($exception);
-                } catch (UncaughtThrowable $exception) {
-                    throw $exception;
-                } catch (Throwable $exception) {
-                    throw UncaughtThrowable::throwingErrorHandler($errorHandler, $exception);
-                }
+                $fiber = new Fiber(static function (Closure $errorHandler, Throwable $exception): void {
+                    try {
+                        $errorHandler($exception);
+                    } catch (UncaughtThrowable $exception) {
+                        throw $exception;
+                    } catch (Throwable $exception) {
+                        throw UncaughtThrowable::throwingErrorHandler($errorHandler, $exception);
+                    }
+                });
+                $fiber->start($errorHandler, $exception);
 
                 return null;
             } finally {
@@ -213,13 +218,28 @@ final class RevoltDriver implements Driver
         return $this->driver->getHandle();
     }
 
+    public function getIdentifiers(): array
+    {
+        return $this->driver->getIdentifiers();
+    }
+
+    public function getType(string $callbackId): CallbackType
+    {
+        return $this->driver->getType($callbackId);
+    }
+
+    public function isEnabled(string $callbackId): bool
+    {
+        return $this->driver->isEnabled($callbackId);
+    }
+
+    public function isReferenced(string $callbackId): bool
+    {
+        return $this->driver->isReferenced($callbackId);
+    }
+
     public function __debugInfo(): array
     {
         return $this->driver->__debugInfo();
-    }
-
-    public function getInfo(): array
-    {
-        return $this->driver->getInfo();
     }
 }
