@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use OpenTelemetry\Async\Revolt\RevoltDriver;
+use Nevay\Otel\Async\Revolt\RevoltDriver;
 use React\EventLoop\Loop;
 use Revolt\EventLoop;
 use Revolt\EventLoop\React\Internal\EventLoopAdapter;

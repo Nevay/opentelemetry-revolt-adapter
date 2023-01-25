@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace OpenTelemetry\Async\Revolt;
+namespace Nevay\Otel\Async\Revolt;
 
 use function assert;
+use AssertionError;
 use Closure;
 use Fiber;
 use OpenTelemetry\Context\Context;
@@ -81,12 +82,12 @@ final class RevoltDriver implements Driver
     }
 
     /**
-     * Wraps the given driver in a context aware driver.
+     * Wraps the given driver in a context preserving driver.
      *
-     * Using the original driver directly is undefined behavior.
+     * The original driver MUST NOT be used.
      *
      * @param Driver $driver driver to wrap
-     * @return Driver wrapped driver
+     * @return Driver context preserving driver
      */
     public static function wrap(
         Driver $driver,
@@ -241,5 +242,10 @@ final class RevoltDriver implements Driver
     public function __debugInfo(): array
     {
         return $this->driver->__debugInfo();
+    }
+
+    private function __clone()
+    {
+        throw new AssertionError();
     }
 }
