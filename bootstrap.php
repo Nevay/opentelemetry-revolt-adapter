@@ -21,5 +21,9 @@ if (class_exists(EventLoopAdapter::class, false)) {
 
 try {
     // Force enable fiber support to not require OTEL_PHP_FIBERS_ENABLED
+    /**
+     * @psalm-suppress InternalMethod
+     * @phan-suppress-next-next-line PhanAccessMethodInternal
+     */
     @ZendObserverFiber::init();
 } catch (Throwable) {}
