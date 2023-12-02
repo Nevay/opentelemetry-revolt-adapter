@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Nevay\Otel\Async\Revolt\RevoltDriver;
+use OpenTelemetry\Context\ZendObserverFiber;
 use React\EventLoop\Loop;
 use Revolt\EventLoop;
 use Revolt\EventLoop\React\Internal\EventLoopAdapter;
@@ -17,3 +18,8 @@ if (class_exists(EventLoopAdapter::class, false)) {
      */
     Loop::set(EventLoopAdapter::get());
 }
+
+try {
+    // Force enable fiber support to not require OTEL_PHP_FIBERS_ENABLED
+    @ZendObserverFiber::init();
+} catch (Throwable) {}
