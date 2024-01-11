@@ -40,7 +40,7 @@ final class RevoltDriver implements Driver
             $a = $args;
             unset($driver, $closure, $context, $args);
 
-            $scope = $s->activate();
+            $scope = Context::storage()->attach($s);
 
             try {
                 /** @noinspection PhpUnusedLocalVariableInspection */
