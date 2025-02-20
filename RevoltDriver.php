@@ -52,16 +52,20 @@ final class RevoltDriver implements Driver
                     throw UncaughtThrowable::throwingCallback($c, $exception);
                 }
 
-                $fiber = new Fiber(static function (Closure $errorHandler, Throwable $exception): void {
+                $fiber = new Fiber(static function (Closure $errorHandler, Throwable $exception, Context $context): void {
+                    $scope = Context::storage()->attach($context);
+
                     try {
                         $errorHandler($exception);
                     } catch (UncaughtThrowable $exception) {
                         throw $exception;
                     } catch (Throwable $exception) {
                         throw UncaughtThrowable::throwingErrorHandler($errorHandler, $exception);
+                    } finally {
+                        $scope->detach();
                     }
                 });
-                $fiber->start($errorHandler, $exception);
+                $fiber->start($errorHandler, $exception, $s);
 
                 return null;
             } finally {
